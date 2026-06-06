@@ -39,6 +39,7 @@ st.markdown("""
 # =====================================================
 
 df = preprocess_data('cleaned_cases.csv')
+#st.write(df.columns)
 
 # =====================================================
 # HEADER
@@ -159,73 +160,117 @@ st.plotly_chart(
 )
 
 # =====================================================
-# STAGE-WISE DELAY ANALYSIS
+# ACTIVE WORKFLOW STAGE DELAY ANALYSIS
 # =====================================================
 
-st.subheader('⚠ Stage-wise Delay Analysis')
+st.subheader('⚠ Active Workflow Stage Delay Analysis')
+
+chart_df = filtered_df.copy()
+
+chart_df['stage_of_case'] = (
+    chart_df['stage_of_case']
+    .astype(str)
+    .str.strip()
+    .str.upper()
+)
+
+inactive_stages = [
+    'DISPOSED',
+    'DISPOSED OTHERWISE',
+    'DISMISSED',
+    'DISMISSED FOR DEFAULT',
+    'CONVICTED',
+    'ACQUITTED',
+    'ABATED',
+    'WITHDRAWN',
+    'CLOSED',
+    'JUDGMENT'
+]
+
+chart_df = chart_df[
+    ~chart_df['stage_of_case'].isin(inactive_stages)
+]
 
 stage_delay = (
-
-    filtered_df.groupby('stage_of_case')[
-        'case_age_days'
-    ]
+    chart_df.groupby('stage_of_case')['case_age_days']
     .mean()
     .reset_index()
+)
 
+stage_delay = stage_delay.sort_values(
+    by='case_age_days',
+    ascending=False
 )
 
 fig2 = px.bar(
-
     stage_delay,
-
     x='stage_of_case',
-
     y='case_age_days',
-
     color='case_age_days',
+    text='case_age_days',
+    title='Average Delay by Active Workflow Stage'
+)
 
-    text='case_age_days'
-
+fig2.update_layout(
+    xaxis_title='Active Stage',
+    yaxis_title='Average Delay (Days)',
+    xaxis_tickangle=-45
 )
 
 st.plotly_chart(
     fig2,
     use_container_width=True
 )
-
 # =====================================================
-# HEATMAP
+# ACTIVE STAGE HEATMAP
 # =====================================================
 
-st.subheader('🔥 District vs Stage Delay Heatmap')
+st.subheader('🔥 District vs Active Stage Delay Heatmap')
 
-heatmap_data = filtered_df.pivot_table(
+heatmap_df = filtered_df.copy()
 
+heatmap_df['stage_of_case'] = (
+    heatmap_df['stage_of_case']
+    .astype(str)
+    .str.strip()
+    .str.upper()
+)
+
+inactive_stages = [
+    'DISPOSED',
+    'DISPOSED OTHERWISE',
+    'DISMISSED',
+    'DISMISSED FOR DEFAULT',
+    'CONVICTED',
+    'ACQUITTED',
+    'ABATED',
+    'WITHDRAWN',
+    'CLOSED',
+    'JUDGMENT'
+]
+
+heatmap_df = heatmap_df[
+    ~heatmap_df['stage_of_case'].isin(inactive_stages)
+]
+
+heatmap_data = heatmap_df.pivot_table(
     values='case_age_days',
-
     index='district_name',
-
     columns='stage_of_case',
-
     aggfunc='mean'
-
 )
 
 fig3 = px.imshow(
-
     heatmap_data,
-
     text_auto=True,
-
-    aspect='auto'
-
+    aspect='auto',
+    title='Average Delay by District and Active Workflow Stage'
 )
 
 st.plotly_chart(
     fig3,
     use_container_width=True
 )
-
 # =====================================================
 # HEARING GAP ANALYSIS
 # =====================================================
@@ -282,9 +327,7 @@ health = (
     .agg({
 
         'case_age_days': 'mean',
-
         'hearing_gap_days': 'mean',
-
         'priority_score': 'mean'
 
     })
@@ -292,19 +335,101 @@ health = (
 
 )
 
-health['Health Score'] = (
+# -----------------------------------------------------
+# NORMALIZATION
+# -----------------------------------------------------
 
-    health['case_age_days'] * 0.4 +
+health['age_norm'] = (
 
-    health['hearing_gap_days'] * 0.3 +
+    (health['case_age_days'] - health['case_age_days'].min())
 
-    health['priority_score'] * 0.3
+    /
+
+    (health['case_age_days'].max() - health['case_age_days'].min())
 
 )
 
+health['gap_norm'] = (
+
+    (health['hearing_gap_days'] - health['hearing_gap_days'].min())
+
+    /
+
+    (health['hearing_gap_days'].max() - health['hearing_gap_days'].min())
+
+)
+
+health['priority_norm'] = (
+
+    (health['priority_score'] - health['priority_score'].min())
+
+    /
+
+    (health['priority_score'].max() - health['priority_score'].min())
+
+)
+
+# -----------------------------------------------------
+# HEALTH SCORE
+# -----------------------------------------------------
+
+health['Health Score'] = (
+
+    80
+
+    -
+
+    (
+
+        health['age_norm'] * 25 +
+
+        health['gap_norm'] * 15 +
+
+        health['priority_norm'] * 20
+
+    )
+
+)
+
+health['Health Score'] = (
+    health['Health Score']
+    .clip(lower=0, upper=100)
+    .round(1)
+)
+
+# -----------------------------------------------------
+# HEALTH STATUS
+# -----------------------------------------------------
+
+def health_status(score):
+
+    if score >= 70:
+        return 'Good'
+
+    elif score >= 55:
+        return 'Moderate'
+
+    elif score >= 40:
+        return 'Needs Improvement'
+
+    else:
+        return 'Critical'
+
+health['Status'] = (
+    health['Health Score']
+    .apply(health_status)
+)
+
+# -----------------------------------------------------
+# VISUALIZATION
+# -----------------------------------------------------
+
 fig5 = px.bar(
 
-    health,
+    health.sort_values(
+        by='Health Score',
+        ascending=False
+    ),
 
     x='district_name',
 
@@ -312,7 +437,19 @@ fig5 = px.bar(
 
     color='Health Score',
 
-    text='Health Score'
+    text='Health Score',
+
+    title='District Health Score'
+
+)
+
+fig5.update_layout(
+
+    xaxis_title='District',
+
+    yaxis_title='Health Score',
+
+    yaxis_range=[0,100]
 
 )
 
@@ -321,19 +458,149 @@ st.plotly_chart(
     use_container_width=True
 )
 
+# -----------------------------------------------------
+# TABLE
+# -----------------------------------------------------
+
+st.dataframe(
+
+    health[
+        [
+            'district_name',
+            'Health Score',
+            'Status'
+        ]
+    ],
+
+    use_container_width=True
+
+)
 # =====================================================
 # PRIORITY CASES
 # =====================================================
 
 st.subheader('🚨 Priority Cases')
 
-priority_cases = filtered_df.sort_values(
+inactive_stages = [
 
-    by='priority_score',
+    'DISPOSED',
+    'DISPOSED OTHERWISE',
+    'DISMISSED',
+    'DISMISSED FOR DEFAULT',
+    'CONVICTED',
+    'CLOSED',
+    'JUDGMENT'
 
-    ascending=False
+]
 
-).head(10)
+priority_df = filtered_df.copy()
+
+# Normalize stage names
+priority_df['stage_of_case'] = priority_df[
+    'stage_of_case'
+].astype(str).str.strip().str.upper()
+
+# Keep only active stages
+priority_df = priority_df[
+    ~priority_df['stage_of_case']
+    .isin(inactive_stages)
+]
+
+# Remove invalid delays
+priority_df = priority_df[
+    priority_df['case_age_days'] > 0
+]
+
+# Replace zero hearing gaps
+valid_gaps = priority_df[
+    priority_df['hearing_gap_days'] > 0
+]
+
+if len(valid_gaps) > 0:
+
+    median_gap = valid_gaps[
+        'hearing_gap_days'
+    ].median()
+
+else:
+
+    median_gap = 30
+
+priority_df['hearing_gap_days'] = priority_df[
+    'hearing_gap_days'
+].replace(0, median_gap)
+
+# =====================================================
+# PRIORITY SCORE (0-100)
+# =====================================================
+
+age_range = (
+    priority_df['case_age_days'].max()
+    - priority_df['case_age_days'].min()
+)
+
+gap_range = (
+    priority_df['hearing_gap_days'].max()
+    - priority_df['hearing_gap_days'].min()
+)
+
+if age_range == 0:
+    priority_df['age_score'] = 50
+else:
+    priority_df['age_score'] = (
+        (
+            priority_df['case_age_days']
+            - priority_df['case_age_days'].min()
+        )
+        / age_range
+    ) * 100
+
+if gap_range == 0:
+    priority_df['gap_score'] = 50
+else:
+    priority_df['gap_score'] = (
+        (
+            priority_df['hearing_gap_days']
+            - priority_df['hearing_gap_days'].min()
+        )
+        / gap_range
+    ) * 100
+
+# Final Priority Score
+
+priority_df['priority_score'] = (
+
+    priority_df['age_score'] * 0.7 +
+
+    priority_df['gap_score'] * 0.3
+
+).round(1)
+
+# =====================================================
+# TOP 3 PRIORITY CASES FROM EACH DISTRICT
+# =====================================================
+
+priority_cases = (
+
+    priority_df
+
+    .sort_values(
+        by='priority_score',
+        ascending=False
+    )
+
+    .groupby('district_name')
+
+    .head(3)
+
+    .sort_values(
+        by='priority_score',
+        ascending=False
+    )
+
+    .reset_index(drop=True)
+
+)
 
 columns = [
 
@@ -346,8 +613,6 @@ columns = [
     'case_age_days',
 
     'hearing_gap_days',
-
-    'calculated_risk',
 
     'priority_score',
 
@@ -363,7 +628,11 @@ available_columns = [
 ]
 
 st.dataframe(
-    priority_cases[available_columns]
+
+    priority_cases[available_columns],
+
+    use_container_width=True
+
 )
 
 # =====================================================
@@ -373,14 +642,16 @@ st.dataframe(
 st.subheader('🚧 Bottleneck Detection')
 
 inactive_stages = [
-
-    'Disposed',
-    'Disposed Otherwise',
-    'Dismissed',
-    'Dismissed For Default',
-    'Closed',
-    'Judgment'
-
+    'DISPOSED',
+    'DISPOSED OTHERWISE',
+    'DISMISSED',
+    'DISMISSED FOR DEFAULT',
+    'CONVICTED',
+    'ACQUITTED',
+    'ABATED',
+    'WITHDRAWN',
+    'CLOSED',
+    'JUDGMENT'
 ]
 
 active_df = filtered_df.copy()
@@ -506,8 +777,7 @@ else:
         Average Hearing Gap:
         {round(worst_stage['hearing_gap_days'])} days
 
-        Pending Cases:
-        {round(worst_stage['pending_count'])}
+        
         """
 
     )
