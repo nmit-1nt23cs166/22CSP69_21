@@ -7,11 +7,8 @@ def preprocess_data(file_path):
     # ============================================
 
     if file_path.endswith('.csv'):
-
         df = pd.read_csv(file_path)
-
     else:
-
         df = pd.read_excel(file_path)
 
     # ============================================
@@ -19,11 +16,8 @@ def preprocess_data(file_path):
     # ============================================
 
     df.columns = [
-
         col.strip().lower()
-
         for col in df.columns
-
     ]
 
     # ============================================
@@ -33,13 +27,9 @@ def preprocess_data(file_path):
     required_columns = [
 
         'district_name',
-
         'court_name',
-
         'stage_of_case',
-
         'case_age_days',
-
         'hearing_gap_days'
 
     ]
@@ -47,7 +37,6 @@ def preprocess_data(file_path):
     for col in required_columns:
 
         if col not in df.columns:
-
             df[col] = 'Unknown'
 
     # ============================================
@@ -55,19 +44,13 @@ def preprocess_data(file_path):
     # ============================================
 
     df['case_age_days'] = pd.to_numeric(
-
         df['case_age_days'],
-
         errors='coerce'
-
     ).fillna(0)
 
     df['hearing_gap_days'] = pd.to_numeric(
-
         df['hearing_gap_days'],
-
         errors='coerce'
-
     ).fillna(0)
 
     # ============================================
@@ -77,15 +60,12 @@ def preprocess_data(file_path):
     def calculate_risk(age):
 
         if age > 1200:
-
             return 'High'
 
         elif age > 600:
-
             return 'Medium'
 
         else:
-
             return 'Low'
 
     df['calculated_risk'] = df[
@@ -110,6 +90,37 @@ def preprocess_data(file_path):
 
     df['long_pending'] = (
         df['case_age_days'] > 365
+    )
+
+    # ============================================
+    # DELAY EXPLANATION
+    # ============================================
+
+    def get_delay_explanation(row):
+
+        if row['case_age_days'] > 1200:
+
+            return 'Very old pending case'
+
+        elif row['hearing_gap_days'] > 60:
+
+            return 'Large hearing gap'
+
+        elif str(row['stage_of_case']).upper() == 'EVIDENCE':
+
+            return 'Delay in evidence stage'
+
+        elif str(row['stage_of_case']).upper() == 'ARGUMENTS':
+
+            return 'Pending arguments stage'
+
+        else:
+
+            return 'Routine case progression'
+
+    df['delay_explanation'] = df.apply(
+        get_delay_explanation,
+        axis=1
     )
 
     return df
