@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from preprocessing import preprocess_data
 
 # =====================================================
@@ -6,6 +7,17 @@ from preprocessing import preprocess_data
 # =====================================================
 
 df = preprocess_data('cleaned_cases.csv')
+
+
+# FIX: replace invalid hearing gaps
+df['hearing_gap_days'] = df['hearing_gap_days'].fillna(0)
+
+median_gap = df[df['hearing_gap_days'] > 0]['hearing_gap_days'].median()
+
+if pd.isna(median_gap):
+    median_gap = 30
+
+df['hearing_gap_days'] = df['hearing_gap_days'].replace(0, median_gap)
 
 # =====================================================
 # PAGE TITLE
