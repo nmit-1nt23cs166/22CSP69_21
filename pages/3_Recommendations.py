@@ -23,7 +23,7 @@ df['hearing_gap_days'] = df['hearing_gap_days'].replace(0, median_gap)
 # PAGE TITLE
 # =====================================================
 
-st.title('📌 Intelligent Recommendations')
+st.title('📌 Recommendations')
 
 st.markdown(
     '### Judicial Decision Support & Delay Recommendations'
