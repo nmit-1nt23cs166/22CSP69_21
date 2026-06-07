@@ -8,7 +8,7 @@ from preprocessing import preprocess_data
 # =====================================================
 
 st.set_page_config(
-    page_title='Judicial Delay Intelligence System',
+    page_title='Judicial Analytics Dashboard',
     layout='wide'
 )
 
@@ -45,7 +45,7 @@ df = preprocess_data('cleaned_cases.csv')
 # HEADER
 # =====================================================
 
-st.title('⚖ Judicial Delay Intelligence System')
+st.title('⚖ Judicial Analytics Dashboard')
 
 st.markdown(
     '### Karnataka Judiciary Pendency & Bottleneck Analytics'
