@@ -21,7 +21,7 @@ else:
 # =====================================================
 # PAGE TITLE
 # =====================================================
-st.title('⚠ Delay Intelligence')
+st.title('⚠ Delay Analysis')
 
 st.markdown('### High-Risk Case Monitoring & Delay Analytics')
 
