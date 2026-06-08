@@ -48,16 +48,37 @@ def preprocess_data(file_path):
         errors='coerce'
     ).fillna(0)
 
-    df['hearing_gap_days'] = pd.to_numeric(
-        df['hearing_gap_days'],
-        errors='coerce'
-    ).fillna(0)
+df['hearing_gap_days'] = pd.to_numeric(
+    df['hearing_gap_days'],
+    errors='coerce'
+).fillna(0)
 
-    # ============================================
-    # RISK CALCULATION
-    # ============================================
+# ============================================
+# STAGE STANDARDIZATION
+# ============================================
 
-    def calculate_risk(age):
+df['stage_of_case'] = (
+    df['stage_of_case']
+    .astype(str)
+    .str.strip()
+    .str.upper()
+)
+
+df['stage_of_case'] = df['stage_of_case'].replace({
+
+    'EVIDENCES': 'EVIDENCE',
+    'ARGUMENTS': 'ARGUMENT',
+    'HEARINGS': 'HEARING',
+    'RE-ISSUE SUMMONS': 'SUMMONS',
+    'REISSUE SUMMONS': 'SUMMONS'
+
+})
+
+# ============================================
+# RISK CALCULATION
+# ============================================
+
+def calculate_risk(age):
 
         if age > 1200:
             return 'High'
